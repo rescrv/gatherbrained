@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+import argparse
+
+def parse(content):
+    lines = list(content.split('\n'))
+    stories = []
+    story = ''
+    skip = False
+
+    for num, (line, next_line) in enumerate(zip(lines, lines[1:] + [None])):
+        print(num, line, next_line)
+        line = line.strip()
+        if next_line and all((c == '-' for c in next_line)):
+            if story.strip():
+                stories.append(story.strip())
+            story = line + '\n' + len(line) * '-' + '\n'
+            skip = True
+        elif skip:
+            skip = False
+        else:
+            story += line + '\n'
+    if story.strip():
+        stories.append(story.strip())
+    return stories
+
+def main(args):
+    parse('')
+    for arg in args:
+        for story in parse(open(arg).read()):
+            print(story)
+
+if __name__ == '__main__':
+    import sys
+    main(sys.argv[1:])
