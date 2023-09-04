@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 
-import argparse
+import collections
+import hashlib
+import math
+import string
+
+def hash_for_story(story):
+    return hashlib.sha3_256(story.encode('utf8')).hexdigest()
 
 def parse(content):
     lines = list(content.split('\n'))
-    stories = []
+    stories = {}
     story = ''
     skip = False
 
     for num, (line, next_line) in enumerate(zip(lines, lines[1:] + [None])):
-        print(num, line, next_line)
         line = line.strip()
         if next_line and all((c == '-' for c in next_line)):
             if story.strip():
-                stories.append(story.strip())
+                stories[hash_for_story(story)] = story
             story = line + '\n' + len(line) * '-' + '\n'
             skip = True
         elif skip:
@@ -21,14 +26,64 @@ def parse(content):
         else:
             story += line + '\n'
     if story.strip():
-        stories.append(story.strip())
-    return stories
+        stories[hash_for_story(story)] = story
+    return dict(stories)
+
+def canon_word(word):
+    return word.strip().strip('.' + string.punctuation).lower()
+
+def index(story_id, story):
+    idx = collections.defaultdict(set)
+    words = [canon_word(word) for word in story.split() if not all((c == '-' for c in word))]
+    words = set((word for word in words if word))
+    for word in words:
+        idx[word].add(story_id)
+    return idx
+
+def entropies(strings):
+    counts = collections.defaultdict(int)
+    total = 0
+    for s in strings:
+        for c in s:
+            counts[c] += 1
+            total += 1
+    return dict(((c, (count/total)) for (c, count) in counts.items()))
+
+def shannon_entropy(p, s):
+    total = 0
+    for c in s:
+        total += 0 - p.get(c) * math.log2(p.get(c))
+    return total
 
 def main(args):
-    parse('')
+    idx = collections.defaultdict(list)
+    stories = {}
     for arg in args:
-        for story in parse(open(arg).read()):
-            print(story)
+        for story_id, story in parse(open(arg).read()).items():
+            stories[story_id] = story
+            for word, ids in index(story_id, story).items():
+                idx[word] += ids
+    entropy = entropies(stories.values())
+    try:
+        while True:
+            words = input('gatherbrained: ')
+            relevant_stories = None
+            for word in words.split():
+                if not word:
+                    continue
+                if relevant_stories is None:
+                    relevant_stories = set(idx.get(canon_word(word), set()))
+                else:
+                    relevant_stories &= set(idx.get(canon_word(word), set()))
+            for story in sorted(relevant_stories):
+                print(stories[story])
+            print('served up {} stories'.format(len(relevant_stories)))
+    except EOFError as e:
+        pass
+    except KeyboardInterrupt as e:
+        pass
+    except Exception as e:
+        raise
 
 if __name__ == '__main__':
     import sys
