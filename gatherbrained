@@ -30,7 +30,10 @@ def parse(content):
     return dict(stories)
 
 def canon_word(word):
-    return word.strip().strip('.' + string.punctuation).lower()
+    return word.strip().strip(string.punctuation).lower()
+
+def to_words(s):
+    return set((canon_word(w) for w in s.split() if canon_word(w)))
 
 def index(story_id, story):
     idx = collections.defaultdict(set)
@@ -52,7 +55,7 @@ def entropies(strings):
 def shannon_entropy(p, s):
     total = 0
     for c in s:
-        total += 0 - p.get(c) * math.log2(p.get(c))
+        total += 0 - p.get(c, 0.0) * math.log2(p.get(c, 0.000000001))
     return total
 
 def main(args):
@@ -67,17 +70,28 @@ def main(args):
     try:
         while True:
             words = input('gatherbrained: ')
+            ranked_words = {}
             relevant_stories = None
-            for word in words.split():
+            for word in to_words(words):
                 if not word:
                     continue
                 if relevant_stories is None:
                     relevant_stories = set(idx.get(canon_word(word), set()))
                 else:
                     relevant_stories &= set(idx.get(canon_word(word), set()))
+            print('----------------------------------------------------------')
+            print('Here are {} stories that match the search terms:'.format(len(relevant_stories)))
+            print('----------------------------------------------------------')
             for story in sorted(relevant_stories):
                 print(stories[story])
-            print('served up {} stories'.format(len(relevant_stories)))
+                for word in to_words(stories[story]):
+                    if word not in ranked_words:
+                        ranked_words[word] = shannon_entropy(entropy, word)
+            print('----------------------------------------------------------')
+            print('Here are ten suggested words with their associated weight:')
+            print('----------------------------------------------------------')
+            for word, ranking in list(reversed(sorted(ranked_words.items(), key=lambda k: k[1])))[:10]:
+                print(word, ranking)
     except EOFError as e:
         pass
     except KeyboardInterrupt as e:
