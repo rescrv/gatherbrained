@@ -2,32 +2,19 @@
 
 import collections
 import hashlib
+import json
 import math
+import shlex
 import string
 
 def hash_for_story(story):
     return hashlib.sha3_256(story.encode('utf8')).hexdigest()
 
-def parse(content):
-    lines = list(content.split('\n'))
-    stories = {}
-    story = ''
-    skip = False
-
-    for num, (line, next_line) in enumerate(zip(lines, lines[1:] + [None])):
-        line = line.strip()
-        if next_line and all((c == '-' for c in next_line)):
-            if story.strip():
-                stories[hash_for_story(story)] = story
-            story = line + '\n' + len(line) * '-' + '\n'
-            skip = True
-        elif skip:
-            skip = False
-        else:
-            story += line + '\n'
-    if story.strip():
-        stories[hash_for_story(story)] = story
-    return dict(stories)
+def parse(file):
+    lines = list(open(file).read().split('\n'))
+    for line in lines:
+        if line:
+            yield json.loads(line)
 
 def canon_word(word):
     return word.strip().strip(string.punctuation).lower()
@@ -58,40 +45,63 @@ def shannon_entropy(p, s):
         total += 0 - p.get(c, 0.0) * math.log2(p.get(c, 0.000000001))
     return total
 
+class Session:
+
+    def __init__(self, story_files):
+        self._stories = {}
+        idx = collections.defaultdict(list)
+        for story_file in story_files:
+            for story in parse(story_file):
+                story_id = hash_for_story(story)
+                self._stories[story_id] = story
+                for word, ids in index(story_id, story).items():
+                    idx[word] += ids
+        self._index = dict(idx)
+        self._entropies = entropies(self._stories.values())
+
+    def search(self, *words):
+        stories = set(self._stories.keys())
+        for word in to_words(' '.join(words)):
+            if not word:
+                continue
+            stories &= set(self._index.get(canon_word(word), set()))
+        return [self._stories[story_id] for story_id in stories]
+
+    def suggest(self, *words, count=10):
+        stories = self.search(*words)
+        ranked_words = {}
+        for story in stories:
+            for word in to_words(story):
+                ranked_words[word] = math.log2(len(self._index.get(word, []))) *  shannon_entropy(self._entropies, word)
+        by_rank = sorted(((rank, word) for (word, rank) in ranked_words.items()), reverse=True)
+        return [word for (rank, word) in by_rank[:count]]
+
 def main(args):
-    idx = collections.defaultdict(list)
-    stories = {}
-    for arg in args:
-        for story_id, story in parse(open(arg).read()).items():
-            stories[story_id] = story
-            for word, ids in index(story_id, story).items():
-                idx[word] += ids
-    entropy = entropies(stories.values())
+    session = Session(args)
     try:
         while True:
-            words = input('gatherbrained: ')
-            ranked_words = {}
-            relevant_stories = None
-            for word in to_words(words):
-                if not word:
-                    continue
-                if relevant_stories is None:
-                    relevant_stories = set(idx.get(canon_word(word), set()))
-                else:
-                    relevant_stories &= set(idx.get(canon_word(word), set()))
-            print('----------------------------------------------------------')
-            print('Here are {} stories that match the search terms:'.format(len(relevant_stories)))
-            print('----------------------------------------------------------')
-            for story in sorted(relevant_stories):
-                print(stories[story])
-                for word in to_words(stories[story]):
-                    if word not in ranked_words:
-                        ranked_words[word] = shannon_entropy(entropy, word)
-            print('----------------------------------------------------------')
-            print('Here are ten suggested words with their associated weight:')
-            print('----------------------------------------------------------')
-            for word, ranking in list(reversed(sorted(ranked_words.items(), key=lambda k: k[1])))[:10]:
-                print(word, ranking)
+            cmdline = shlex.split(input('gatherbrained# '))
+            if not cmdline:
+                continue
+            cmd, args = cmdline[0], cmdline[1:]
+            if cmd == 'search':
+                if not args:
+                    args = prev_search
+                elif args[0] == '+':
+                    args = prev_search + args[1:]
+                prev_search = args
+                for story in sorted(session.search(*args)):
+                    print(story + '\n')
+            elif cmd == 'suggest':
+                if not args:
+                    args = prev_search
+                elif args[0] == '+':
+                    args = prev_search + args[1:]
+                prev_search = args
+                for word in session.suggest(*args):
+                    print(word)
+            else:
+                print("unknown command")
     except EOFError as e:
         pass
     except KeyboardInterrupt as e:

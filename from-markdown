@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+
+import collections
+import hashlib
+import json
+import math
+import shlex
+import string
+
+def hash_for_story(story):
+    return hashlib.sha3_256(story.encode('utf8')).hexdigest()
+
+def parse(content):
+    lines = list(content.split('\n'))
+    stories = {}
+    story = ''
+    skip = False
+
+    for num, (line, next_line) in enumerate(zip(lines, lines[1:] + [None])):
+        line = line.strip()
+        if next_line and all((c == '-' for c in next_line)):
+            if story.strip():
+                stories[hash_for_story(story)] = story
+            story = line + '\n' + len(line) * '-' + '\n'
+            skip = True
+        elif skip:
+            skip = False
+        else:
+            story += line + '\n'
+    if story.strip():
+        stories[hash_for_story(story)] = story
+    return dict(stories)
+
+def main(args):
+    for story_file in args:
+        for story_id, story in parse(open(story_file).read()).items():
+            print(json.dumps(story.strip() + '\n#taoteching'))
+
+if __name__ == '__main__':
+    import sys
+    main(sys.argv[1:])
