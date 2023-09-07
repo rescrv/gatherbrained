@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+import json
+import os
+import os.path
+import sys
+import tempfile
+
+def append_to_file(filename, story):
+    if os.path.exists(filename):
+        existing = open(filename).read()
+    else:
+        existing = ''
+    dirname = os.path.dirname(filename) or '.'
+    tmp = tempfile.NamedTemporaryFile(prefix='.gatherbrained', suffix='.tmp', dir=dirname, delete=False)
+    tmp.write(existing.encode('utf8'))
+    tmp.write(json.dumps(story).encode('utf8') + b'\n')
+    tmp.flush()
+    if os.path.exists(filename):
+        os.rename(filename, '.' + filename + '.bak')
+    os.rename(tmp.name, filename)
+
+def main(args):
+    story = sys.stdin.read()
+    for arg in args:
+        append_to_file(arg, story)
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

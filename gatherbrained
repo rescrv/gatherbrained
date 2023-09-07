@@ -91,7 +91,7 @@ def main(args):
                     args = prev_search + args[1:]
                 prev_search = args
                 for story in sorted(session.search(*args)):
-                    print(story + '\n')
+                    print(story.strip() + '\n')
             elif cmd == 'suggest':
                 if not args:
                     args = prev_search
