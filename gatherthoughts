@@ -21,6 +21,9 @@ def append_to_file(filename, story):
     os.rename(tmp.name, filename)
 
 def main(args):
+    if not args:
+        print("provide one or more gatherbrained files as an argument", file=sys.stderr)
+        sys.exit(1)
     story = sys.stdin.read()
     for arg in args:
         append_to_file(arg, story)

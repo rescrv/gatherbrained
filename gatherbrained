@@ -4,6 +4,7 @@ import collections
 import hashlib
 import json
 import math
+import readline
 import shlex
 import string
 
@@ -78,6 +79,7 @@ class Session:
 
 def main(args):
     session = Session(args)
+    prev_search = []
     try:
         while True:
             cmdline = shlex.split(input('gatherbrained# '))
@@ -101,7 +103,7 @@ def main(args):
                 for word in session.suggest(*args):
                     print(word)
             else:
-                print("unknown command")
+                print("unknown command", file=sys.stderr)
     except EOFError as e:
         pass
     except KeyboardInterrupt as e:
