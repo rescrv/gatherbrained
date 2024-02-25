@@ -1,0 +1,11 @@
+[package]
+name = "gatherbrained"
+version = "0.1.0"
+authors = ["Robert Escriva <robert@rescrv.net>"]
+edition = "2021"
+description = "gatherbrained is a suite of story-writing tools"
+license = "Apache-2.0"
+repository = "https://github.com/rescrv/gatherbrained"
+
+[dependencies]
+rustyline = "11.0"
